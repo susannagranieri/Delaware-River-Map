@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Where Large Vessels Experienced Marine Casualties on the Delaware River</title>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet" />
+    <style>
+        body { margin: 0; padding: 0; font-family: 'Times New Roman', Times, serif; }
+        #map { width: 100vw; height: 100vh; }
+        #info-box {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            font-size: 18px;
+            max-width: 400px;
+            z-index: 1000;
+        }
+        #title { font-size: 28px; font-weight: bold; margin-bottom: 10px; }
+        #description { font-size: 18px; }
+        .popup-content {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div id="info-box">
+        <div id="title">Where Large Vessels Experienced Marine Casualties on the Delaware River</div>
+        <div id="description">Locations of United States Coast Guard Incident Investigation Activities/Reports into Reportable Marine Casualties (RMC) occurring in the Sector Delaware Bay (SDB) Area of Responsibility (AOR) from 2013 to 2024, involving Vessels over 400 feet in length, wherein the vessel encountered a loss/reduction or propulsion/steering OR a loss of electrical power.</div>
+    </div>
+    <div id="map"></div>
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1Ijoic3VzYW5uYWdyYW5pZXJpIiwiYSI6ImNtN2NkdGhjejBodTUybG9ka2drYjE3bnQifQ.EL1sAn6ap1EUCpLbG2WgLw';
+
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/streets-v11',
+            center: [-75.35, 39.6],
+            zoom: 8
+        });
+
+        map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+        fetch('https://raw.githubusercontent.com/susannagranieri/delaware/refs/heads/main/Delaware%20public%20-%20Sheet1%20updates.csv')
+        .then(response => response.text())
+        .then(csvText => {
+            const rows = csvText.split('\n').map(row => row.split(','));
+            const headers = rows[0].map(header => header.trim());
+            const data = rows.slice(1).map(row => {
+                let obj = {};
+                headers.forEach((header, index) => {
+                    obj[header] = row[index] ? row[index].trim() : '-';
+                });
+                return obj;
+            });
+
+            data.forEach(incident => {
+                const lat = parseFloat(incident["Latitude"]);
+                const lng = parseFloat(incident["Longitude"]);
+                if (isNaN(lat) || isNaN(lng)) return;
+                
+                let markerColor = "red";
+                
+                let popupContent = `<div class='popup-content'><h4>Activity ID: ${incident["Activity ID"]}</h4>`;
+                popupContent += `<p><strong>Date:</strong> ${incident["StartDtTm"] || "N/A"}</p>`;
+                headers.forEach(header => {
+                    if (header !== "Activity ID" && header !== "Latitude" && header !== "Longitude" && header !== "StartDtTm") {
+                        popupContent += `<p><strong>${header}:</strong> ${incident[header] || "-"}</p>`;
+                    }
+                });
+                popupContent += `</div>`;
+                
+                const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(popupContent);
+
+                new mapboxgl.Marker({ color: markerColor, scale: 0.5 }) 
+                    .setLngLat([lng, lat])
+                    .setPopup(popup)
+                    .addTo(map);
+            });
+        })
+        .catch(error => console.error('Error fetching CSV:', error));
+    </script>
+</body>
+</html>
